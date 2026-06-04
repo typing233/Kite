@@ -1,0 +1,78 @@
+# Kite Terminal File Manager Configuration
+# Place this file at ~/.config/kite/config.toml
+
+[general]
+show_hidden = false
+confirm_delete = true
+follow_symlinks = true
+
+[ui]
+tick_rate_ms = 100
+show_icons = true
+show_permissions = true
+show_size = true
+show_modified = true
+pane_ratios = [1, 3, 2]   # left:center:right ratio
+
+[ui.theme]
+preset = "default"  # "default", "nord", "gruvbox", "catppuccin"
+
+[sort]
+field = "name"       # "name", "size", "modified", "extension"
+ascending = true
+dirs_first = true
+
+[preview]
+enabled = true
+max_file_size = "10MB"
+syntax_theme = "base16-ocean.dark"
+image_protocol = "kitty"  # "kitty", "sixel", "none"
+tab_width = 4
+
+[plugins]
+directory = "~/.config/kite/plugins"
+enabled = []
+
+# Key bindings - Normal mode
+[keys.normal]
+"j"         = "cursor_down"
+"k"         = "cursor_up"
+"h"         = "parent_directory"
+"l"         = "enter_directory"
+"Enter"     = "enter_directory"
+"Ctrl+d"    = "page_down"
+"Ctrl+u"    = "page_up"
+"Space"     = "toggle_select"
+"v"         = "visual_mode"
+"y"         = "copy"
+"x"         = "cut"
+"p"         = "paste"
+"d"         = "delete"
+"r"         = "rename"
+"a"         = "create_file"
+"A"         = "create_dir"
+"."         = "toggle_hidden"
+"s"         = "sort_next"
+"S"         = "toggle_sort_order"
+"Ctrl+r"    = "refresh"
+"Ctrl+p"    = "toggle_preview"
+"/"         = "search"
+"f"         = "filter"
+":"         = "command_mode"
+"q"         = "quit"
+
+# Key bindings - Visual mode
+[keys.visual]
+"j"         = "cursor_down"
+"k"         = "cursor_up"
+"Esc"       = "normal_mode"
+"y"         = "copy"
+"d"         = "delete"
+"x"         = "cut"
+
+# Key bindings - Search/Filter mode
+[keys.search]
+"Enter"     = "confirm"
+"Esc"       = "cancel"
+"Ctrl+n"    = "search_next"
+"Ctrl+p"    = "search_prev"

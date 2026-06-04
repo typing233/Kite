@@ -1,0 +1,10 @@
+[package]
+name = "kite-fs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kite-core = { path = "../kite-core" }
+tokio = { workspace = true, features = ["fs", "io-util"] }
+notify = { workspace = true }
+walkdir = { workspace = true }

@@ -1,0 +1,56 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/kite-core",
+    "crates/kite-fs",
+    "crates/kite-preview",
+    "crates/kite-plugin",
+    "crates/kite-ui",
+]
+
+[package]
+name = "kite"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "kite"
+path = "src/main.rs"
+
+[dependencies]
+kite-core = { path = "crates/kite-core" }
+kite-fs = { path = "crates/kite-fs" }
+kite-preview = { path = "crates/kite-preview" }
+kite-plugin = { path = "crates/kite-plugin" }
+kite-ui = { path = "crates/kite-ui" }
+tokio = { workspace = true, features = ["full"] }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+dirs = { workspace = true }
+futures = { workspace = true }
+
+[workspace.dependencies]
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+anyhow = "1"
+thiserror = "2"
+syntect = "5"
+image = "0.25"
+base64 = "0.22"
+libloading = "0.8"
+mlua = { version = "0.10", features = ["lua54", "vendored", "async", "send"] }
+notify = "7"
+walkdir = "2"
+unicode-width = "0.2"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
+human_bytes = "0.4"
+log = "0.4"
+env_logger = "0.11"

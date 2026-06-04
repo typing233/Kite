@@ -1,0 +1,17 @@
+[package]
+name = "kite-ui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kite-core = { path = "../kite-core" }
+kite-fs = { path = "../kite-fs" }
+kite-preview = { path = "../kite-preview" }
+kite-plugin = { path = "../kite-plugin" }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+tokio = { workspace = true }
+unicode-width = { workspace = true }
+chrono = { workspace = true }
+human_bytes = { workspace = true }
+log = { workspace = true }

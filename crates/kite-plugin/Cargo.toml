@@ -1,0 +1,12 @@
+[package]
+name = "kite-plugin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kite-core = { path = "../kite-core" }
+kite-preview = { path = "../kite-preview" }
+libloading = { workspace = true }
+mlua = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }

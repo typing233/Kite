@@ -1,0 +1,13 @@
+[package]
+name = "kite-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossterm = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+ratatui = { workspace = true }
+dirs = { workspace = true }
