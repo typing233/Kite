@@ -12,11 +12,14 @@ pub struct PluginManager {
     native_plugins: Vec<LoadedNativePlugin>,
     lua_runtime: Option<LuaRuntime>,
     plugin_dir: PathBuf,
+    enabled_list: Vec<String>,
     commands: HashMap<String, PluginSource>,
 }
 
 struct LoadedNativePlugin {
     plugin: NativePlugin,
+    #[allow(dead_code)]
+    name: String,
     enabled: bool,
 }
 
@@ -30,11 +33,13 @@ impl PluginManager {
     pub fn new(config: &Config, cmd_sender: UnboundedSender<AppCommand>) -> Self {
         let plugin_dir = config.plugins.plugin_dir();
         let lua_runtime = LuaRuntime::new(cmd_sender).ok();
+        let enabled_list = config.plugins.enabled.clone();
 
         Self {
             native_plugins: Vec::new(),
             lua_runtime,
             plugin_dir,
+            enabled_list,
             commands: HashMap::new(),
         }
     }
@@ -44,7 +49,7 @@ impl PluginManager {
             return Ok(());
         }
 
-        // Load native plugins (.so / .dylib)
+        // Load native plugins (.so / .dylib) — only if in enabled list
         let native_ext = if cfg!(target_os = "macos") {
             "dylib"
         } else {
@@ -56,18 +61,34 @@ impl PluginManager {
                 let path = entry.path();
                 if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                     if ext == native_ext {
+                        // Derive plugin name from filename (e.g. "git-status.so" -> "git-status")
+                        let plugin_file_name = path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("")
+                            .strip_prefix("lib")
+                            .unwrap_or(
+                                path.file_stem().and_then(|s| s.to_str()).unwrap_or(""),
+                            )
+                            .to_string();
+
+                        // Only load if in the enabled list
+                        if !self.is_enabled(&plugin_file_name) {
+                            log::debug!("Skipping disabled plugin: {}", plugin_file_name);
+                            continue;
+                        }
+
                         match unsafe { NativePlugin::load(&path) } {
                             Ok(plugin) => {
-                                log::info!(
-                                    "Loaded native plugin: {}",
-                                    plugin.instance.manifest().name
-                                );
+                                let name = plugin.instance.manifest().name.clone();
+                                log::info!("Loaded native plugin: {}", name);
                                 let idx = self.native_plugins.len();
                                 for cmd in plugin.instance.commands() {
                                     self.commands.insert(cmd, PluginSource::Native(idx));
                                 }
                                 self.native_plugins.push(LoadedNativePlugin {
                                     plugin,
+                                    name,
                                     enabled: true,
                                 });
                             }
@@ -80,7 +101,7 @@ impl PluginManager {
             }
         }
 
-        // Load Lua plugins
+        // Load Lua plugins — only if in enabled list
         let lua_dir = self.plugin_dir.join("lua");
         if lua_dir.exists() {
             if let Some(ref runtime) = self.lua_runtime {
@@ -88,9 +109,21 @@ impl PluginManager {
                     for entry in entries.flatten() {
                         let path = entry.path();
                         if path.extension().and_then(|e| e.to_str()) == Some("lua") {
+                            // Derive plugin name from filename (e.g. "fzf-integration.lua" -> "fzf-integration")
+                            let script_name = path
+                                .file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("")
+                                .to_string();
+
+                            if !self.is_enabled(&script_name) {
+                                log::debug!("Skipping disabled Lua plugin: {}", script_name);
+                                continue;
+                            }
+
                             match runtime.load_script(&path) {
                                 Ok(()) => {
-                                    log::info!("Loaded Lua plugin: {:?}", path.file_name());
+                                    log::info!("Loaded Lua plugin: {}", script_name);
                                 }
                                 Err(e) => {
                                     log::warn!("Failed to load Lua plugin {:?}: {}", path, e);
@@ -110,19 +143,27 @@ impl PluginManager {
         Ok(())
     }
 
+    fn is_enabled(&self, name: &str) -> bool {
+        self.enabled_list.iter().any(|e| e == name)
+    }
+
+    pub fn has_command(&self, command: &str) -> bool {
+        self.commands.contains_key(command)
+    }
+
     pub fn execute_command(
         &mut self,
-        _plugin_name: &str,
         command: &str,
         args: &[&str],
         ctx: &mut PluginContext,
     ) -> Result<(), PluginError> {
-        // Check if it's a known command
         if let Some(source) = self.commands.get(command).cloned() {
             match source {
                 PluginSource::Native(idx) => {
                     if let Some(loaded) = self.native_plugins.get_mut(idx) {
-                        return loaded.plugin.instance.execute_command(command, args, ctx);
+                        if loaded.enabled {
+                            return loaded.plugin.instance.execute_command(command, args, ctx);
+                        }
                     }
                 }
                 PluginSource::Lua => {

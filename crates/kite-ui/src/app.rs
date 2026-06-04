@@ -670,6 +670,13 @@ impl App {
             .collect()
     }
 
+    pub fn get_selected_entries(&self) -> Vec<FileEntry> {
+        self.selected
+            .iter()
+            .filter_map(|&i| self.entries.get(i).cloned())
+            .collect()
+    }
+
     pub fn set_status(&mut self, text: String, level: StatusLevel) {
         self.status_message = Some(StatusMessage {
             text,

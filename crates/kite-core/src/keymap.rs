@@ -71,19 +71,20 @@ pub struct Keymap {
     bindings: Vec<KeyBinding>,
     sequence_buffer: Vec<KeyCombo>,
     sequence_bindings: HashMap<Vec<KeyCombo>, String>,
+    last_key_time: Option<std::time::Instant>,
+    sequence_timeout: std::time::Duration,
 }
 
 impl Keymap {
     pub fn new(bindings: Vec<KeyBinding>) -> Self {
         let sequence_bindings = HashMap::new();
 
-        // Extract sequence bindings (identified by space in command key spec)
-        // These are handled separately during key dispatch
-
         Self {
             bindings,
             sequence_buffer: Vec::new(),
             sequence_bindings,
+            last_key_time: None,
+            sequence_timeout: std::time::Duration::from_millis(500),
         }
     }
 
@@ -103,6 +104,18 @@ impl Keymap {
     }
 
     pub fn feed_key(&mut self, key: KeyCombo, context: &KeyContext) -> KeymapResult {
+        let now = std::time::Instant::now();
+
+        // If there's a pending sequence and timeout has elapsed, discard it
+        if !self.sequence_buffer.is_empty() {
+            if let Some(last_time) = self.last_key_time {
+                if now.duration_since(last_time) > self.sequence_timeout {
+                    self.sequence_buffer.clear();
+                }
+            }
+        }
+
+        self.last_key_time = Some(now);
         self.sequence_buffer.push(key.clone());
 
         // Check if current buffer matches any sequence exactly
@@ -122,7 +135,7 @@ impl Keymap {
             return KeymapResult::Pending;
         }
 
-        // No sequence match, try single key
+        // No sequence match — try single key resolve for the latest key
         self.sequence_buffer.clear();
         if let Some(cmd) = self.resolve(&key, context) {
             KeymapResult::Command(cmd.to_string())
@@ -149,7 +162,12 @@ pub enum KeymapResult {
 
 impl KeyCombo {
     pub fn from_crossterm(key_code: KeyCode, modifiers: KeyModifiers) -> Option<Self> {
+        let ctrl = modifiers.contains(KeyModifiers::CONTROL);
+        let alt = modifiers.contains(KeyModifiers::ALT);
+        let shift = modifiers.contains(KeyModifiers::SHIFT);
+
         let code = match key_code {
+            KeyCode::Char(' ') => SerializableKeyCode::Space,
             KeyCode::Char(c) => SerializableKeyCode::Char(c),
             KeyCode::Enter => SerializableKeyCode::Enter,
             KeyCode::Esc => SerializableKeyCode::Esc,
@@ -168,15 +186,23 @@ impl KeyCombo {
             _ => return None,
         };
 
-        let mods = Modifiers {
-            ctrl: modifiers.contains(KeyModifiers::CONTROL),
-            alt: modifiers.contains(KeyModifiers::ALT),
-            shift: modifiers.contains(KeyModifiers::SHIFT),
+        // For uppercase letters, crossterm reports SHIFT modifier, but our bindings
+        // register them as Char('A') with shift=true via kb_shift(). For plain chars
+        // (lowercase + symbols), ignore the shift modifier since the char itself
+        // already reflects it.
+        let effective_shift = match &code {
+            SerializableKeyCode::Char(c) if c.is_ascii_uppercase() => true,
+            SerializableKeyCode::Char(_) => false,
+            _ => shift,
         };
 
         Some(Self {
             code,
-            modifiers: mods,
+            modifiers: Modifiers {
+                ctrl,
+                alt,
+                shift: effective_shift,
+            },
         })
     }
 }
@@ -267,7 +293,12 @@ pub fn command_to_app_command(cmd: &str) -> Option<AppCommand> {
         "quit" => Some(AppCommand::Quit),
         "force_quit" => Some(AppCommand::ForceQuit),
         "command_mode" => Some(AppCommand::CommandMode),
-        _ => None,
+        // Unknown commands are routed to the plugin system
+        other => Some(AppCommand::PluginCommand {
+            plugin: String::new(),
+            command: other.to_string(),
+            args: Vec::new(),
+        }),
     }
 }
 
@@ -289,6 +320,7 @@ pub fn default_keymap() -> Keymap {
         kb_ctrl('u', "page_up", KeyContext::Normal),
         kb_code(SerializableKeyCode::Home, "cursor_top", KeyContext::Normal),
         kb_code(SerializableKeyCode::End, "cursor_bottom", KeyContext::Normal),
+        kb_shift('G', "cursor_bottom", KeyContext::Normal),
         // Normal mode - selection
         kb_code(SerializableKeyCode::Space, "toggle_select", KeyContext::Normal),
         kb('v', "visual_mode", KeyContext::Normal),
@@ -336,12 +368,6 @@ pub fn default_keymap() -> Keymap {
             KeyCombo { code: SerializableKeyCode::Char('g'), modifiers: Modifiers::default() },
         ],
         "cursor_top".to_string(),
-    );
-    keymap.register_sequence(
-        vec![
-            KeyCombo { code: SerializableKeyCode::Char('G'), modifiers: Modifiers { shift: true, ..Default::default() } },
-        ],
-        "cursor_bottom".to_string(),
     );
 
     keymap
