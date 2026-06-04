@@ -704,7 +704,11 @@ impl App {
     pub fn is_input_mode(&self) -> bool {
         matches!(
             self.mode,
-            AppMode::Search | AppMode::Filter | AppMode::Command | AppMode::Input(_)
+            AppMode::Search
+                | AppMode::Filter
+                | AppMode::Command
+                | AppMode::Input(_)
+                | AppMode::Confirm(_)
         )
     }
 

@@ -139,18 +139,22 @@ async fn run_app(
             Some(cmd) = cmd_rx.recv() => {
                 match cmd {
                     AppCommand::PluginCommand { plugin: _, ref command, ref args } => {
-                        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-                        let mut ctx = PluginContext {
-                            current_dir: app.current_dir.clone(),
-                            selected_entries: app.get_selected_entries(),
-                            command_sender: cmd_tx.clone(),
-                        };
-                        if let Err(e) = plugin_manager.execute_command(command, &args_refs, &mut ctx) {
-                            app.set_status(
-                                format!("Plugin error: {}", e),
-                                kite_ui::app::StatusLevel::Error,
-                            );
+                        // Only dispatch if this is an actually registered plugin command
+                        if plugin_manager.has_command(command) {
+                            let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+                            let mut ctx = PluginContext {
+                                current_dir: app.current_dir.clone(),
+                                selected_entries: app.get_selected_entries(),
+                                command_sender: cmd_tx.clone(),
+                            };
+                            if let Err(e) = plugin_manager.execute_command(command, &args_refs, &mut ctx) {
+                                app.set_status(
+                                    format!("Plugin error: {}", e),
+                                    kite_ui::app::StatusLevel::Error,
+                                );
+                            }
                         }
+                        // Unknown commands that aren't registered plugins are silently ignored
                     }
                     other => {
                         let quit = app.execute_command(other).await?;

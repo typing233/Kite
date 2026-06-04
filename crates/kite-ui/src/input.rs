@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, AppMode};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use kite_core::event::AppCommand;
 use kite_core::keymap::{command_to_app_command, KeyCombo, KeymapResult};
@@ -30,6 +30,20 @@ fn handle_key(app: &mut App, key: KeyEvent) -> Option<AppCommand> {
 }
 
 fn handle_input_key(app: &mut App, key: KeyEvent) -> Option<AppCommand> {
+    // Confirm mode: only Enter (confirm) and Esc (cancel) are accepted
+    if matches!(app.mode, AppMode::Confirm(_)) {
+        return match key.code {
+            KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
+                Some(AppCommand::ConfirmInput)
+            }
+            KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
+                Some(AppCommand::CancelInput)
+            }
+            _ => None,
+        };
+    }
+
+    // Text input modes (Search, Filter, Rename, Create, Command)
     match key.code {
         KeyCode::Enter => Some(AppCommand::ConfirmInput),
         KeyCode::Esc => Some(AppCommand::CancelInput),
